@@ -5,5 +5,8 @@
   "description": "Generic evidence lookup service MVP",
   "scripts": {
     "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
   }
 }

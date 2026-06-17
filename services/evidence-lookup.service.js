@@ -1,4 +1,8 @@
+'use strict';
+
 const crypto = require("crypto");
+const { createEvidenceStore } = require("../store/evidence-store");
+const storeConfig = require("../store/config");
 
 const CONFIDENCE_ORDER = {
   none: 0,
@@ -59,6 +63,7 @@ function redispatchNormalizer(record, context) {
 
 function createEvidenceLookupService(options = {}) {
   const now = options.now || (() => new Date().toISOString());
+
   const state = {
     counters: { lookup: 0, recipe: 0, evidence: 0 },
     lookups: new Map(),
@@ -66,6 +71,12 @@ function createEvidenceLookupService(options = {}) {
     evidence: new Map(),
     coverage: new Map(),
   };
+
+  const store = createEvidenceStore(
+    options.storeConfig || storeConfig,
+    state
+  );
+  store.load();
 
   const domainNormalizers = {
     redispatch_2_0: redispatchNormalizer,
@@ -102,11 +113,32 @@ function createEvidenceLookupService(options = {}) {
 
   function nextId(prefix, key) {
     state.counters[key] += 1;
+    store.saveCounters();
     return `${prefix}_${String(state.counters[key]).padStart(6, "0")}`;
   }
 
   function recipeKey(domain, operatorId) {
     return `${domain}::${operatorId}`;
+  }
+
+  function setLookup(id, obj) {
+    state.lookups.set(id, obj);
+    store.saveLookup(id, obj);
+  }
+
+  function setRecipe(id, obj) {
+    state.recipes.set(id, obj);
+    store.saveRecipe(id, obj);
+  }
+
+  function setEvidence(id, obj) {
+    state.evidence.set(id, obj);
+    store.saveEvidence(id, obj);
+  }
+
+  function setCoverage(key, obj) {
+    state.coverage.set(key, obj);
+    store.saveCoverage(key, obj);
   }
 
   function findRecipes(filter = {}) {
@@ -129,7 +161,7 @@ function createEvidenceLookupService(options = {}) {
       checkedAt: now(),
       ...data,
     };
-    state.coverage.set(key, payload);
+    setCoverage(key, payload);
     return payload;
   }
 
@@ -145,7 +177,7 @@ function createEvidenceLookupService(options = {}) {
         domain,
         ...normalized,
       };
-      state.evidence.set(id, evidence);
+      setEvidence(id, evidence);
       created.push(evidence);
     }
 
@@ -197,7 +229,7 @@ function createEvidenceLookupService(options = {}) {
         warnings: [reason || "no_public_measure_list_found"],
       },
     };
-    state.evidence.set(id, evidence);
+    setEvidence(id, evidence);
 
     persistCoverage(domain, operator, {
       coverageStatus: "no_public_measure_list_found",
@@ -294,7 +326,7 @@ function createEvidenceLookupService(options = {}) {
         },
       };
 
-      state.recipes.set(recipe.recipeId, recipe);
+      setRecipe(recipe.recipeId, recipe);
       const createdEvidence = await persistPositiveEvidence({
         domain: input.domain,
         operator,
@@ -304,7 +336,7 @@ function createEvidenceLookupService(options = {}) {
 
       recipe.validation.sampleEvidenceIds = createdEvidence.map((item) => item.id);
       recipe.updatedAt = now();
-      state.recipes.set(recipe.recipeId, recipe);
+      setRecipe(recipe.recipeId, recipe);
 
       Object.assign(lookup, {
         status: "completed",
@@ -317,7 +349,7 @@ function createEvidenceLookupService(options = {}) {
       if (activeRecipe) {
         activeRecipe.status = "degraded";
         activeRecipe.updatedAt = now();
-        state.recipes.set(activeRecipe.recipeId, activeRecipe);
+        setRecipe(activeRecipe.recipeId, activeRecipe);
         lookup.recipeStatus = "degraded";
         lookup.recipeId = activeRecipe.recipeId;
       }
@@ -342,7 +374,7 @@ function createEvidenceLookupService(options = {}) {
       officialUrls: (classifyResult?.officialUrls || []).length,
       llmParseAttempts: parseResult?.llmParseAttempts ?? 0,
     };
-    state.lookups.set(lookup.lookupId, lookup);
+    setLookup(lookup.lookupId, lookup);
     return lookup;
   }
 
@@ -401,7 +433,7 @@ function createEvidenceLookupService(options = {}) {
           recipeStatus: "missing",
           action: "discovery_started",
         };
-        state.lookups.set(lookup.lookupId, lookup);
+        setLookup(lookup.lookupId, lookup);
 
         if (params.executeDiscovery) {
           return executeDiscovery({
@@ -441,7 +473,7 @@ function createEvidenceLookupService(options = {}) {
         recipe.status = params.status;
         recipe.reason = params.reason;
         recipe.updatedAt = now();
-        state.recipes.set(recipe.recipeId, recipe);
+        setRecipe(recipe.recipeId, recipe);
         return recipe;
       },
 
