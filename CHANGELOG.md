@@ -13,13 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **SQLite store backend** – `store/evidence-store.js` now supports `type: 'sqlite'` using Node's built-in `node:sqlite` module for local persistent storage without external dependencies.
 - **Expanded configuration/docs/tests** – Added discovery/LLM environment settings, SQLite examples, and regression coverage for default scraping + LLM fallback paths.
 
-- **`store/evidence-store.js`** – Pluggable storage component with two backends:
+- **`store/evidence-store.js`** – Pluggable storage component with three backends:
   - `memory` (default): write-through in-memory Maps, no disk I/O. Suitable for tests and ephemeral processes.
   - `file`: write-through JSON file persistence under `EVIDENCE_STORE_DIR`. Recipes, evidence records, lookups, coverage data and ID counters survive process restarts. Each entity is stored as an individual `.json` file for simple inspection and backup.
+  - `sqlite`: local write-through SQLite persistence under `EVIDENCE_STORE_DB_PATH`, implemented with Node's built-in `node:sqlite`.
   - Public API: `load()`, `saveCounters()`, `saveLookup(id, obj)`, `saveRecipe(id, obj)`, `saveEvidence(id, obj)`, `saveCoverage(key, obj)`.
 - **`store/config.js`** – Centralised configuration loader. Reads from a `.env` file via `dotenv` (if present) and exports `type`, `dir`, `retentionDays`, `snapshotRetentionDays`, and `logRetentionDays` with documented defaults.
 - **`.env.example`** – Documented example environment file with all configurable settings, ready to copy to `.env`.
-- **`tests/evidence-store.test.js`** – 14 unit/integration tests for both backends, including a full service-restart round-trip test that verifies recipes and evidence survive a process restart when using the file store.
+- **`tests/evidence-store.test.js`** – Unit/integration coverage for all persistent backends, including full service-restart round-trip tests for file and SQLite persistence.
 - **`dotenv`** (npm) – Runtime dependency for loading `.env` configuration files.
 
 ### Changed

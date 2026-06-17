@@ -241,6 +241,7 @@ function createEvidenceLookupService(options = {}) {
     if (!lookup) return null;
 
     const operator = {
+      ...(input.operator || {}),
       id: input.operator.id || input.operatorId,
       name: input.operator.name || input.operator.id || input.operatorId,
     };
