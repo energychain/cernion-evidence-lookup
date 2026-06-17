@@ -1,0 +1,9 @@
+{
+  "name": "cernion-evidence-lookup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generic evidence lookup service MVP",
+  "scripts": {
+    "test": "node --test"
+  }
+}
