@@ -116,7 +116,7 @@ function createLlmClient(config = {}, options = {}) {
         });
 
         if (!response.ok) {
-          throw new Error(`LLM request failed with status ${response.status}`);
+          throw new Error(`LLM request failed with status ${response.status}: ${response.statusText}`);
         }
 
         const payload = await response.json();

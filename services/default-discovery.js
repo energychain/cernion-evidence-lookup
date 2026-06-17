@@ -14,8 +14,8 @@ function unique(items) {
 function stripTags(value) {
   if (typeof value !== 'string') return '';
   return value
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&(nbsp|amp|quot|#39|lt|gt);/gi, (_, entity) => {
       const normalized = entity.toLowerCase();
@@ -136,7 +136,10 @@ function normalizeDate(value) {
   );
   if (!european) return null;
 
-  const [, day, month, year, hour = '00', minute = '00', second = '00'] = european;
+  const [, day, month, year] = european;
+  const hour = european[4] || '00';
+  const minute = european[5] || '00';
+  const second = european[6] || '00';
   const fullYear = year.length === 2 ? `20${year}` : year;
   return new Date(
     Date.UTC(Number(fullYear), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))

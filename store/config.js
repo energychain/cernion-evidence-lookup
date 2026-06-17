@@ -16,7 +16,7 @@ try {
 function parsePositiveInteger(name, value, fallback) {
   const parsed = Number.parseInt(value || fallback, 10);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
+    throw new Error(`${name} must be a positive integer, got: ${value || fallback}`);
   }
   return parsed;
 }
