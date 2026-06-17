@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`services/default-discovery.js`** – Real default discovery pipeline with search bootstrap, HTTP fetch, same-host crawling, HTML table scraping, JSON feed parsing, source classification, and LLM fallback support.
+- **`services/llm-client.js`** – OpenAI-compatible LLM client for semantic extraction fallback with JSON-only responses and configurable endpoint/model settings.
+- **SQLite store backend** – `store/evidence-store.js` now supports `type: 'sqlite'` using Node's built-in `node:sqlite` module for local persistent storage without external dependencies.
+- **Expanded configuration/docs/tests** – Added discovery/LLM environment settings, SQLite examples, and regression coverage for default scraping + LLM fallback paths.
+
 - **`store/evidence-store.js`** – Pluggable storage component with two backends:
   - `memory` (default): write-through in-memory Maps, no disk I/O. Suitable for tests and ephemeral processes.
   - `file`: write-through JSON file persistence under `EVIDENCE_STORE_DIR`. Recipes, evidence records, lookups, coverage data and ID counters survive process restarts. Each entity is stored as an individual `.json` file for simple inspection and backup.

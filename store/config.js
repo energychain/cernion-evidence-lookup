@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('path');
+
 /**
  * Loads .env (if present) via dotenv and exports a configuration object
  * for the evidence store and retention settings.
@@ -12,11 +14,16 @@ try {
 } catch (_) {}
 
 module.exports = {
-  /** 'memory' (default) or 'file' */
+  /** 'memory' (default), 'file', or 'sqlite' */
   type: process.env.EVIDENCE_STORE_TYPE || 'memory',
 
   /** Base directory for file-based persistence (only used when type='file') */
   dir: process.env.EVIDENCE_STORE_DIR || '.evidence-store',
+
+  /** SQLite database path (only used when type='sqlite') */
+  dbPath:
+    process.env.EVIDENCE_STORE_DB_PATH
+    || path.join(process.env.EVIDENCE_STORE_DIR || '.evidence-store', 'evidence-store.sqlite'),
 
   /** Evidence metadata retention in days (default: 5 years) */
   retentionDays: parseInt(process.env.EVIDENCE_RETENTION_DAYS || '1825', 10),

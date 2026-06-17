@@ -258,3 +258,101 @@ test("file store: service preserves recipes and evidence across restarts", async
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("sqlite store: persists entities and counters to disk and loads them back", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ev-store-sqlite-test-"));
+  try {
+    const dbPath = path.join(dir, "evidence.sqlite");
+    const state1 = makeState();
+    const store1 = createEvidenceStore({ type: "sqlite", dbPath }, state1);
+    store1.load();
+
+    state1.counters.recipe = 9;
+    store1.saveCounters();
+    store1.saveLookup("rdl_1", { lookupId: "rdl_1", status: "completed" });
+    store1.saveRecipe("rdr_1", {
+      recipeId: "rdr_1",
+      domain: "redispatch_2_0",
+      operatorId: "op1",
+      status: "candidate",
+    });
+    store1.saveEvidence("rde_1", {
+      id: "rde_1",
+      domain: "redispatch_2_0",
+      operator: { id: "op1" },
+      provenance: { rawSnapshotHash: "sha256:a", canonicalJsonHash: "sha256:b" },
+      quality: { confidence: "medium", warnings: [] },
+    });
+    store1.saveCoverage("redispatch_2_0::op1", {
+      operator: { id: "op1" },
+      coverageStatus: "partial_public_sources",
+    });
+
+    const state2 = makeState();
+    const store2 = createEvidenceStore({ type: "sqlite", dbPath }, state2);
+    store2.load();
+
+    assert.equal(state2.counters.recipe, 9);
+    assert.equal(state2.lookups.get("rdl_1").status, "completed");
+    assert.equal(state2.recipes.get("rdr_1").status, "candidate");
+    assert.equal(state2.evidence.get("rde_1").operator.id, "op1");
+    assert.equal(state2.coverage.get("redispatch_2_0::op1").coverageStatus, "partial_public_sources");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("sqlite store: service preserves recipes and evidence across restarts", async () => {
+  const { createEvidenceLookupService } = require("../services/evidence-lookup.service");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ev-store-sqlite-svc-test-"));
+  try {
+    const dbPath = path.join(dir, "evidence.sqlite");
+    const svc1 = createEvidenceLookupService({
+      storeConfig: { type: "sqlite", dbPath },
+      discoverySteps: {
+        async classify() {
+          return { sourceType: "vnb_html_table", officialUrls: ["https://example.invalid/rdr"] };
+        },
+        async parse() {
+          return {
+            adapter: "vnb-html-table",
+            adapterVersion: "1.0.0",
+            parserProfile: "testop.redispatch_2_0.public.v1",
+            records: [
+              {
+                measure: { startsAt: "2026-01-01T00:00:00Z", endsAt: "2026-01-01T01:00:00Z", powerMw: 5 },
+                provenance: { rawSnapshotHash: "sha256:sqlite-r", canonicalJsonHash: "sha256:sqlite-c" },
+              },
+            ],
+          };
+        },
+        async validate() {
+          return { valid: true, recipeStatus: "candidate", confidence: "medium" };
+        },
+      },
+    });
+
+    await svc1.actions.lookup({
+      params: {
+        domain: "redispatch_2_0",
+        operator: { id: "testop", name: "Test Op" },
+        executeDiscovery: true,
+      },
+    });
+
+    const svc2 = createEvidenceLookupService({ storeConfig: { type: "sqlite", dbPath } });
+    const recipes = await svc2.actions.listRecipes({
+      params: { domain: "redispatch_2_0", operator: "testop" },
+    });
+    const evidenceList = await svc2.actions.listEvidence({
+      params: { domain: "redispatch_2_0", operator: "testop" },
+    });
+
+    assert.equal(recipes.items.length, 1);
+    assert.equal(recipes.items[0].status, "candidate");
+    assert.equal(evidenceList.items.length, 1);
+    assert.equal(evidenceList.items[0].provenance.rawSnapshotHash, "sha256:sqlite-r");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

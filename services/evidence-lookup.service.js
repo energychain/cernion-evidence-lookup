@@ -3,6 +3,7 @@
 const crypto = require("crypto");
 const { createEvidenceStore } = require("../store/evidence-store");
 const storeConfig = require("../store/config");
+const { createDefaultDiscoverySteps } = require("./default-discovery");
 
 const CONFIDENCE_ORDER = {
   none: 0,
@@ -83,28 +84,12 @@ function createEvidenceLookupService(options = {}) {
     ...(options.domainNormalizers || {}),
   };
 
-  const defaultDiscoverySteps = {
-    async search() {
-      return { queries: [], candidateUrls: [] };
-    },
-    async fetch() {
-      return { pages: [] };
-    },
-    async classify() {
-      return { officialUrls: [], sourceType: "vnb_html_table" };
-    },
-    async parse() {
-      return { records: [], llmParseAttempts: 0 };
-    },
-    async validate({ parseResult }) {
-      return {
-        valid: Array.isArray(parseResult.records) && parseResult.records.length > 0,
-        reason: Array.isArray(parseResult.records) && parseResult.records.length > 0
-          ? "ok"
-          : "no_public_measure_list_found",
-      };
-    },
-  };
+  const defaultDiscoverySteps = createDefaultDiscoverySteps({
+    discoveryConfig: options.discoveryConfig,
+    fetchImplementation: options.fetchImplementation,
+    llmClient: options.llmClient,
+    llmConfig: options.llmConfig,
+  });
 
   const discoverySteps = {
     ...defaultDiscoverySteps,

@@ -217,3 +217,140 @@ test("degraded recipe is reported when parse validation fails", async () => {
   assert.equal(lookup.recipeStatus, "degraded");
   assert.equal(degradedRecipe.status, "degraded");
 });
+
+test("default discovery fetches and scrapes public html tables", async () => {
+  const responses = new Map([
+    [
+      "https://search.example/?q=Westnetz%20GmbH%20Redispatch%202.0%20Ma%C3%9Fnahmen",
+      new Response(
+        '<html><body><a href="https://westnetz.example/">Westnetz</a></body></html>',
+        { headers: { "content-type": "text/html" } }
+      ),
+    ],
+    [
+      "https://search.example/?q=Westnetz%20GmbH%20redispatch%20netzbetreiber",
+      new Response("<html><body>No more results</body></html>", {
+        headers: { "content-type": "text/html" },
+      }),
+    ],
+    [
+      "https://westnetz.example/",
+      new Response(
+        '<html><body><a href="/redispatch">Redispatch 2.0 Maßnahmen</a></body></html>',
+        { headers: { "content-type": "text/html" } }
+      ),
+    ],
+    [
+      "https://westnetz.example/redispatch",
+      new Response(
+        [
+          "<html><head><title>Westnetz Redispatch</title></head><body>",
+          "<table>",
+          "<tr><th>Von</th><th>Bis</th><th>Leistung (MW)</th><th>Status</th></tr>",
+          "<tr><td>17.06.2026 08:00</td><td>17.06.2026 09:00</td><td>12,4</td><td>completed</td></tr>",
+          "</table>",
+          "</body></html>",
+        ].join(""),
+        { headers: { "content-type": "text/html" } }
+      ),
+    ],
+  ]);
+
+  const service = createEvidenceLookupService({
+    discoveryConfig: {
+      searchEndpoint: "https://search.example/?q=",
+      maxPages: 4,
+      maxSearchResults: 4,
+    },
+    fetchImplementation: async (url) => responses.get(url) || new Response("", { status: 404 }),
+  });
+
+  const lookup = await service.actions.lookup({
+    params: {
+      domain: "redispatch_2_0",
+      operator: {
+        id: "westnetz",
+        name: "Westnetz GmbH",
+        website: "https://westnetz.example/",
+      },
+      executeDiscovery: true,
+    },
+  });
+
+  assert.equal(lookup.status, "completed");
+  assert.equal(lookup.evidenceCreated, 1);
+  assert.equal(lookup.discoveryTrace.candidateUrls, 1);
+
+  const listed = await service.actions.listEvidence({
+    params: { domain: "redispatch_2_0", operator: "westnetz" },
+  });
+  assert.equal(listed.items.length, 1);
+  assert.equal(listed.items[0].measure.powerMw, 12.4);
+  assert.equal(listed.items[0].measure.startsAt, "2026-06-17T08:00:00.000Z");
+});
+
+test("default discovery uses llm fallback when deterministic parsing fails", async () => {
+  const llmRequests = [];
+  const service = createEvidenceLookupService({
+    fetchImplementation: async (url, options = {}) => {
+      if (url === "https://westnetz.example/redispatch") {
+        return new Response(
+          "<html><body><h1>Redispatch 2.0</h1><p>Public measure list for Westnetz.</p></body></html>",
+          { headers: { "content-type": "text/html" } }
+        );
+      }
+
+      if (url === "https://llm.example/v1/chat/completions") {
+        llmRequests.push(JSON.parse(options.body));
+        return Response.json({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  records: [
+                    {
+                      measure: {
+                        startsAt: "2026-06-17T08:00:00Z",
+                        endsAt: "2026-06-17T09:00:00Z",
+                        powerMw: 15.2,
+                        status: "completed",
+                      },
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        });
+      }
+
+      return new Response("", { status: 404 });
+    },
+    llmConfig: {
+      endpoint: "https://llm.example/v1/chat/completions",
+      model: "test-model",
+      apiKey: "test-token",
+    },
+  });
+
+  const lookup = await service.actions.lookup({
+    params: {
+      domain: "redispatch_2_0",
+      operator: {
+        id: "westnetz",
+        name: "Westnetz GmbH",
+        website: "https://westnetz.example/redispatch",
+      },
+      executeDiscovery: true,
+    },
+  });
+
+  assert.equal(lookup.status, "completed");
+  assert.equal(lookup.discoveryTrace.llmParseAttempts, 1);
+  assert.equal(llmRequests.length, 1);
+
+  const recipes = await service.actions.listRecipes({
+    params: { domain: "redispatch_2_0", operator: "westnetz" },
+  });
+  assert.equal(recipes.items[0].parse.adapter, "llm-structured-extractor");
+});
