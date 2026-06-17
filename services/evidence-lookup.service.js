@@ -202,7 +202,7 @@ function createEvidenceLookupService(options = {}) {
 
   function persistNegativeEvidence({ domain, operator, classifyResult, reason }) {
     const id = nextId("rde", "evidence");
-    const firstUrl = classifyResult?.officialUrls?.[0] || null;
+    const sourceUrl = classifyResult?.officialUrls?.[0] || null;
     const sourceType = classifyResult?.sourceType || "vnb_html_table";
     const evidence = {
       id,
@@ -213,14 +213,14 @@ function createEvidenceLookupService(options = {}) {
       source: {
         sourceId: `${operator.id}-redispatch-info-page`,
         sourceType,
-        url: firstUrl,
+        url: sourceUrl,
         retrievedAt: now(),
         adapter: "vnb-html-table",
         adapterVersion: "1.0.0",
         parserProfile: `${operator.id}.${domain}.negative.v1`,
       },
       provenance: {
-        rawSnapshotHash: sha256({ domain, operator: operator.id, firstUrl, reason }),
+        rawSnapshotHash: sha256({ domain, operator: operator.id, sourceUrl, reason }),
         canonicalJsonHash: sha256({ domain, operator: operator.id, reason }),
       },
       quality: {
