@@ -246,18 +246,22 @@ function createEvidenceStore(config, state) {
     },
 
     saveLookup(id, obj) {
+      state.lookups.set(id, obj);
       backend.writeJson(path.join(dir, 'lookups', `${id}.json`), obj);
     },
 
     saveRecipe(id, obj) {
+      state.recipes.set(id, obj);
       backend.writeJson(path.join(dir, 'recipes', `${id}.json`), obj);
     },
 
     saveEvidence(id, obj) {
+      state.evidence.set(id, obj);
       backend.writeJson(path.join(dir, 'evidence', `${id}.json`), obj);
     },
 
     saveCoverage(key, obj) {
+      state.coverage.set(key, obj);
       backend.writeJson(
         path.join(dir, 'coverage', `${backend.encodeKey(key)}.json`),
         { ...obj, _key: key }

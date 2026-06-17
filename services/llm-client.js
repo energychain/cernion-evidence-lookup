@@ -87,7 +87,7 @@ function createLlmClient(config = {}, options = {}) {
           headers: {
             'content-type': 'application/json',
             ...(resolvedConfig.apiKey
-              ? { authorization: ['Bearer', resolvedConfig.apiKey].join(' ') }
+              ? { authorization: 'Bearer ' + resolvedConfig.apiKey }
               : {}),
           },
           body: JSON.stringify({

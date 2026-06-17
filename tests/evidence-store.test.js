@@ -347,11 +347,13 @@ test("sqlite store: service preserves recipes and evidence across restarts", asy
     const evidenceList = await svc2.actions.listEvidence({
       params: { domain: "redispatch_2_0", operator: "testop" },
     });
+    const lookup = await svc2.actions.getLookup({ params: { lookupId: "rdl_000001" } });
 
     assert.equal(recipes.items.length, 1);
     assert.equal(recipes.items[0].status, "candidate");
     assert.equal(evidenceList.items.length, 1);
     assert.equal(evidenceList.items[0].provenance.rawSnapshotHash, "sha256:sqlite-r");
+    assert.equal(lookup.status, "completed");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -13,6 +13,14 @@ try {
   require('dotenv').config();
 } catch (_) {}
 
+function parsePositiveInteger(name, value, fallback) {
+  const parsed = Number.parseInt(value || fallback, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
 module.exports = {
   /** 'memory' (default), 'file', or 'sqlite' */
   type: process.env.EVIDENCE_STORE_TYPE || 'memory',
@@ -26,11 +34,11 @@ module.exports = {
     || path.join(process.env.EVIDENCE_STORE_DIR || '.evidence-store', 'evidence-store.sqlite'),
 
   /** Evidence metadata retention in days (default: 5 years) */
-  retentionDays: parseInt(process.env.EVIDENCE_RETENTION_DAYS || '1825', 10),
+  retentionDays: parsePositiveInteger('EVIDENCE_RETENTION_DAYS', process.env.EVIDENCE_RETENTION_DAYS, '1825'),
 
   /** Raw snapshot retention in days (default: 1 year) */
-  snapshotRetentionDays: parseInt(process.env.SNAPSHOT_RETENTION_DAYS || '365', 10),
+  snapshotRetentionDays: parsePositiveInteger('SNAPSHOT_RETENTION_DAYS', process.env.SNAPSHOT_RETENTION_DAYS, '365'),
 
   /** Fetch log retention in days (default: 6 months) */
-  logRetentionDays: parseInt(process.env.LOG_RETENTION_DAYS || '180', 10),
+  logRetentionDays: parsePositiveInteger('LOG_RETENTION_DAYS', process.env.LOG_RETENTION_DAYS, '180'),
 };

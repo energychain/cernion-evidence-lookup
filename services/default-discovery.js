@@ -14,15 +14,19 @@ function unique(items) {
 function stripTags(value) {
   if (typeof value !== 'string') return '';
   return value
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
+    .replace(/&(nbsp|amp|quot|#39|lt|gt);/gi, (_, entity) => {
+      const normalized = entity.toLowerCase();
+      if (normalized === 'nbsp') return ' ';
+      if (normalized === 'amp') return '&';
+      if (normalized === 'quot') return '"';
+      if (normalized === '#39') return "'";
+      if (normalized === 'lt') return '<';
+      if (normalized === 'gt') return '>';
+      return ' ';
+    })
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -171,8 +175,19 @@ function headerIndex(headers, expressions) {
   return headers.findIndex((header) => expressions.some((expression) => expression.test(header)));
 }
 
+function looksLikeHeaderRow(headers) {
+  const normalizedHeaders = headers.map((cell) => cell.toLowerCase());
+  return normalizedHeaders.some((header) =>
+    [/von/, /bis/, /start/, /ende/, /mw/, /leistung/, /status/, /richtung/, /direction/].some((pattern) =>
+      pattern.test(header)
+    )
+  );
+}
+
 function recordsFromTable(tableRows) {
   if (!Array.isArray(tableRows) || tableRows.length < 2) return [];
+  if (!looksLikeHeaderRow(tableRows[0])) return [];
+
   const headers = tableRows[0].map((cell) => cell.toLowerCase());
   const startsAtIndex = headerIndex(headers, [/^von$/, /start/, /beginn/, /ab /, /ab$/]);
   const endsAtIndex = headerIndex(headers, [/^bis$/, /ende/, /end/, /to$/]);
